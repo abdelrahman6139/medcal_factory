@@ -10,8 +10,6 @@ final router = GoRouter(
         return OnboardingScreen();
 
       })
-      ShellRoute(builder: (context,state,child){
-        return
-      })
+
     ]
 );
