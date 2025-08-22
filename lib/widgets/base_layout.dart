@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pharma_app/features/auth/presentation/screens/profile_page.dart';
 import '../constants/colors.dart';
-import '../screens/profile_page.dart';
 
 class BaseLayout extends StatelessWidget {
   final Widget child;

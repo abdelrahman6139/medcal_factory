@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../constants/colors.dart';
-import 'checkout_page.dart';
-import '../models/product.dart'; // ✅ علشان نستخدم Product
+import 'package:pharma_app/constants/colors.dart';
+import 'package:pharma_app/features/product/models/product.dart';
+import 'package:pharma_app/features/payment/screens/checkout_page.dart';
+import ''; // ✅ علشان نستخدم Product
 
 class CartItem {
   final String id;
@@ -234,13 +235,15 @@ class _CartScreenState extends State<CartScreen> {
                                       cartProducts:
                                           _items.map((e) {
                                             return Product(
+                                              id: e.id,
                                               title: e.title,
-                                              subtitle: '',
-                                              price:
-                                                  '\$${e.price.toStringAsFixed(2)}',
-                                              imageName: e.image,
-                                              stock: e.qty,
-                                              selectedQuantity: e.qty,
+                                              slug: e.title.toLowerCase().replaceAll(" ", "-"), // simple slug
+                                              description: "No description", // placeholder
+                                              quantity: e.qty,
+                                              sold: 0,
+                                              price: e.price,
+                                              imageCover: e.image,
+                                              category: null, // or a proper Category object if you have one
                                             );
                                           }).toList(),
                                     ),

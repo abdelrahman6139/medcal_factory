@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/shop_screen.dart';
-import 'screens/cart_screen.dart';
-import 'screens/home_page.dart';
+import 'package:pharma_app/features/cart/screens/cart_screen.dart';
+import 'features/product/screens/shop_screen.dart';
+import 'features/home/screens/home_page.dart';
 import 'widgets/base_layout.dart';
 
 class BaseShell extends StatefulWidget {

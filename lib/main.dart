@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // 👈 مهم
+import 'package:pharma_app/features/auth/presentation/screens/login_screen.dart';
+import 'package:pharma_app/features/auth/presentation/screens/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/login_screen.dart';
 import 'base_shell.dart';
 
 const bool showOnboardingEveryLaunchInDebug =
-    true; // 👈 لو خليتها false هيرجع للوضع العادي
+true; // 👈 لو خليتها false هيرجع للوضع العادي
 
 Future<bool> _loadOnboardingDone() async {
   final prefs = await SharedPreferences.getInstance();
@@ -41,6 +41,7 @@ class MyApp extends StatelessWidget {
 
         final onboardingDone = snap.data!;
         return MaterialApp(
+
           debugShowCheckedModeBanner: false,
           home: onboardingDone ? const LoginScreen() : const OnboardingScreen(),
           routes: {
