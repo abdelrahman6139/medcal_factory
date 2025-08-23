@@ -16,6 +16,7 @@ class AuthRemoteService {
     required String name,
     required String email,
     required String password,
+    required String confirmPassword,
   }) async {
     try {
       final response = await _dio.post(
@@ -24,6 +25,7 @@ class AuthRemoteService {
           "name": name,
           "email": email,
           "password": password,
+          "passwordConfirm": confirmPassword, // ✅ Added
         },
       );
 
@@ -39,6 +41,7 @@ class AuthRemoteService {
       throw Exception(e.response?.data ?? e.message);
     }
   }
+
 
   // Login
   Future<Map<String, dynamic>> login({

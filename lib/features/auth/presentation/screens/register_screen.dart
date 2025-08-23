@@ -1,12 +1,51 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_app/constants/colors.dart';
+import 'package:pharma_app/base_shell.dart';
+import 'package:pharma_app/features/auth/presentation/state/auth_state/AuthNotifier.dart';
+import 'package:pharma_app/features/auth/presentation/state/auth_state/AuthState.dart';
 
-class RegisterScreen extends StatelessWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
+
+    // 🔔 Listen for auth changes
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      print("STATE CHANGED: $next");
+
+      if (next is AuthAuthenticated) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const BaseShell()),
+              (_) => false,
+        );
+      } else if (next is AuthError) {
+        // 👇 Just print errors to console
+        print("AUTH ERROR: ${next.message}");
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -32,8 +71,25 @@ class RegisterScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
+                // 👇 Name
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    labelStyle: const TextStyle(color: AppColors.textGray),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    filled: true,
+                    fillColor: AppColors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Email
                 TextField(
+                  controller: _emailController,
                   decoration: InputDecoration(
                     labelText: 'Email',
                     labelStyle: const TextStyle(color: AppColors.textGray),
@@ -49,6 +105,7 @@ class RegisterScreen extends StatelessWidget {
 
                 // Password
                 TextField(
+                  controller: _passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Password',
@@ -65,6 +122,7 @@ class RegisterScreen extends StatelessWidget {
 
                 // Confirm Password
                 TextField(
+                  controller: _confirmController,
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
@@ -90,14 +148,27 @@ class RegisterScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Account created successfully!"),
-                        ),
+                    onPressed: authState is AuthLoading
+                        ? null
+                        : () {
+                      FocusScope.of(context).unfocus();
+
+                      if (_passwordController.text !=
+                          _confirmController.text) {
+                        print("AUTH ERROR: Passwords do not match"); // 👈 console only
+                        return;
+                      }
+
+                      ref.read(authNotifierProvider.notifier).register(
+                        _nameController.text.trim(),
+                        _emailController.text.trim(),
+                        _passwordController.text.trim(),
+                        _confirmController.text.trim(), // 👈 send confirm too
                       );
                     },
-                    child: const Text(
+                    child: authState is AuthLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
                       'Sign up',
                       style: TextStyle(color: AppColors.white),
                     ),
@@ -110,7 +181,7 @@ class RegisterScreen extends StatelessWidget {
                 Center(
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.pop(context); // go back to login
+                      Navigator.pop(context);
                     },
                     child: const Text(
                       "Already have an account",
@@ -127,7 +198,6 @@ class RegisterScreen extends StatelessWidget {
                     style: TextStyle(color: AppColors.subtitle),
                   ),
                 ),
-
                 const SizedBox(height: 16),
 
                 // Social Media Icons (placeholders)

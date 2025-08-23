@@ -52,11 +52,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// 📝 Signup
-  Future<void> signup(String name, String email, String password) async {
+  Future<void> register(
+      String name,
+      String email,
+      String password,
+      String confirmPassword,
+      ) async {
     state = const AuthLoading();
     try {
-      final result =
-      await _authService.signup(name: name, email: email, password: password);
+      final result = await _authService.signup(
+        name: name,
+        email: email,
+        password: password,
+        confirmPassword: confirmPassword, // ✅ Pass confirm password
+      );
+
       final user = result['user'] as User;
       final token = result['token'] as String?;
 
@@ -72,6 +82,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthError(e.toString());
     }
   }
+
 
   /// 🔒 Forgot Password
   Future<void> forgotPassword(String email) async {
