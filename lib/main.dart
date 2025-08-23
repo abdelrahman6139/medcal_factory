@@ -5,6 +5,7 @@ import 'package:pharma_app/features/auth/presentation/screens/onboarding_screen.
 import 'package:shared_preferences/shared_preferences.dart';
 import 'base_shell.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 const bool showOnboardingEveryLaunchInDebug =
 true; // 👈 لو خليتها false هيرجع للوضع العادي
 
@@ -21,7 +22,11 @@ Future<bool> _loadOnboardingDone() async {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  runApp(
+    const ProviderScope( // ⬅️ Wrap your app here
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
