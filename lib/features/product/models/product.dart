@@ -1,3 +1,4 @@
+// lib/models/product.dart
 import 'category.dart';
 
 class Product {
@@ -12,7 +13,7 @@ class Product {
   final List<String>? colors;
   final String imageCover;
   final List<String>? images;
-  final Category? category; // <-- here
+  final Category? category;
 
   Product({
     required this.id,
@@ -31,18 +32,31 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['_id'],
-      title: json['title'],
-      slug: json['slug'],
-      description: json['description'],
-      quantity: json['quantity'],
-      sold: json['sold'],
-      price: json['price'].toDouble(),
-      priceAfterDiscount: json['priceAfterDiscount']?.toDouble(),
-      colors: json['colors'] != null ? List<String>.from(json['colors']) : null,
-      imageCover: json['imageCover'],
-      images: json['images'] != null ? List<String>.from(json['images']) : null,
-      category: json['category'] != null ? Category.fromJson(json['category']) : null,
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      slug: (json['slug'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      quantity: (json['quantity'] ?? 0) as int,
+      sold: (json['sold'] ?? 0) as int,
+      price: ((json['price'] ?? 0) as num).toDouble(),
+      priceAfterDiscount:
+          json['priceAfterDiscount'] != null
+              ? ((json['priceAfterDiscount'] as num).toDouble())
+              : null,
+      colors:
+          (json['colors'] is List)
+              ? List<String>.from(json['colors'].map((e) => e.toString()))
+              : null,
+      // ✅ لو السيرفر مرجعش صورة دلوقتي، نخليها فاضية بدل null
+      imageCover: (json['imageCover'] ?? '').toString(),
+      images:
+          (json['images'] is List)
+              ? List<String>.from(json['images'].map((e) => e.toString()))
+              : null,
+      category:
+          (json['category'] is Map<String, dynamic>)
+              ? Category.fromJson(Map<String, dynamic>.from(json['category']))
+              : null,
     );
   }
 

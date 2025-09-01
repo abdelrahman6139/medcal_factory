@@ -50,8 +50,10 @@ class CategoryService {
       FormData formData = FormData.fromMap({
         "name": name,
         if (image != null)
-          "image": await MultipartFile.fromFile(image.path,
-              filename: image.path.split('/').last),
+          "image": await MultipartFile.fromFile(
+            image.path,
+            filename: image.path.split('/').last,
+          ),
       });
 
       final response = await _dio.post("/categories", data: formData);
@@ -71,8 +73,10 @@ class CategoryService {
       FormData formData = FormData.fromMap({
         if (name != null) "name": name,
         if (image != null)
-          "image": await MultipartFile.fromFile(image.path,
-              filename: image.path.split('/').last),
+          "image": await MultipartFile.fromFile(
+            image.path,
+            filename: image.path.split('/').last,
+          ),
       });
 
       final response = await _dio.put("/categories/$id", data: formData);

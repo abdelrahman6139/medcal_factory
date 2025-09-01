@@ -1,98 +1,193 @@
-// lib/services/product_service.dart
-import 'dart:io';
+import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import '../models/product.dart';
+import '../../../core/debug/logger.dart'; // ← اللوجر اللي عملناه
 
 class ProductService {
-  late Dio _dio;
+  final Dio _dio;
 
-  ProductService(String token) {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: "http://10.0.2.2:5000/api/v1",
-        connectTimeout: Duration(seconds: 5),
-        receiveTimeout: Duration(seconds: 3),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
+  ProductService({required String baseUrl, required String token})
+    : _dio = Dio(
+        BaseOptions(
+          baseUrl: '$baseUrl/api/v1',
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          validateStatus: (c) => c != null && c >= 200 && c < 500,
+        ),
+      ) {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final start = DateTime.now().millisecondsSinceEpoch;
+          options.extra['__start'] = start;
+          L.d(
+            'HTTP →',
+            '${options.method} ${options.uri}',
+            data: {
+              'headers': options.headers,
+              'query': options.queryParameters,
+              if (options.data != null) 'body': options.data,
+            },
+          );
+          handler.next(options);
+        },
+        onResponse: (res, handler) {
+          final start = res.requestOptions.extra['__start'] as int?;
+          final durMs =
+              start == null
+                  ? null
+                  : (DateTime.now().millisecondsSinceEpoch - start);
+          // لو الرد كبير، خلّيك مختصر: مفاتيح/الطول
+          final shape =
+              res.data is Map
+                  ? {'keys': (res.data as Map).keys.toList()}
+                  : (res.data is List
+                      ? {'len': (res.data as List).length}
+                      : {'type': '${res.data.runtimeType}'});
+          L.d(
+            'HTTP ←',
+            'status=${res.statusCode}  (${durMs ?? '?'} ms)',
+            data: shape,
+          );
+          handler.next(res);
+        },
+        onError: (e, handler) {
+          L.e(
+            'HTTP ✖',
+            '${e.requestOptions.method} ${e.requestOptions.uri}',
+            error: e,
+            st: e.stackTrace,
+          );
+
+          if (e.response?.data != null) {
+            final shape =
+                e.response!.data is Map
+                    ? {'keys': (e.response!.data as Map).keys.toList()}
+                    : (e.response!.data is List
+                        ? {'len': (e.response!.data as List).length}
+                        : {'type': '${e.response!.data.runtimeType}'});
+            L.d('HTTP ✖ body', 'shape', data: shape);
+          }
+          handler.next(e);
         },
       ),
     );
   }
 
-  // GET all products
-  Future<List<Product>> getProducts() async {
-    try {
-      final response = await _dio.get("/products");
-      print(response);
-      final List<dynamic> data = response.data['data'];
-      return data.map((json) => Product.fromJson(json)).toList();
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
+  // Helper صغير للّوج
+  String _preview(dynamic data, [int maxChars = 400]) {
+    final s = (data is String) ? data : data.toString();
+    final n = math.min(s.length, maxChars);
+    return s.substring(0, n);
   }
 
-  // GET single product
-  Future<Product> getProduct(String id) async {
+  Future<List<Product>> getProducts({int limit = 20}) async {
     try {
-      final response = await _dio.get("/products/$id");
-      return Product.fromJson(response.data['data']);
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
-  }
-
-  // CREATE product
-  Future<Product> createProduct(Map<String, dynamic> productData) async {
-    try {
-      final response = await _dio.post("/products", data: productData);
-      return Product.fromJson(response.data['data']);
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
-  }
-
-  // UPDATE product
-  Future<Product> updateProduct(String id, Map<String, dynamic> updates) async {
-    try {
-      final response = await _dio.put("/products/$id", data: updates);
-      return Product.fromJson(response.data['data']);
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
-  }
-
-  // DELETE product
-  Future<void> deleteProduct(String id) async {
-    try {
-      await _dio.delete("/products/$id");
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
-  }
-
-  // UPLOAD product images (cover + gallery)
-  Future<Product> uploadProductImages(
-      String id, File imageCover, List<File> images) async {
-    try {
-      final Map<String, MultipartFile> fileMap = {};
-      fileMap['imageCover'] = await MultipartFile.fromFile(
-        imageCover.path,
-        filename: imageCover.path.split('/').last,
+      final res = await _dio.get(
+        '/products',
+        queryParameters: {'limit': limit},
       );
 
-      final imageList = await Future.wait(images.map((file) async {
-        return await MultipartFile.fromFile(file.path,
-            filename: file.path.split('/').last);
-      }));
+      // DEBUG
+      // ignore: avoid_print
+      print('GET /products => ${res.statusCode} (${res.data.runtimeType})');
+      // ignore: avoid_print
+      print('Body preview: ${_preview(res.data)}');
 
-      FormData formData = FormData.fromMap({
-        "imageCover": fileMap['imageCover'],
-        "images": imageList,
-      });
+      // أخطاء أوث/سيرفر برسالة أوضح
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        throw Exception('Unauthorized: invalid/expired token.');
+      }
+      if (res.statusCode == 429) {
+        throw Exception('Rate limited. Try again later.');
+      }
+      if (res.statusCode != 200) {
+        throw Exception('HTTP ${res.statusCode}: ${_preview(res.data)}');
+      }
 
-      final response = await _dio.put("/products/$id", data: formData);
-      return Product.fromJson(response.data['data']);
+      final body = res.data;
+
+      // 1) Array مباشر
+      if (body is List) {
+        return body
+            .map((e) => Product.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+
+      // 2) { data: [ ... ] }
+      if (body is Map<String, dynamic>) {
+        final data = body['data'];
+
+        if (data is List) {
+          return data
+              .map((e) => Product.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+        }
+
+        // 3) { data: { docs: [ ... ] } }
+        if (data is Map && data['docs'] is List) {
+          final docs = List<Map<String, dynamic>>.from(
+            (data['docs'] as List).map((e) => Map<String, dynamic>.from(e)),
+          );
+          return docs.map(Product.fromJson).toList();
+        }
+
+        // 4) { products: [ ... ] }
+        if (body['products'] is List) {
+          final list = List<Map<String, dynamic>>.from(
+            (body['products'] as List).map((e) => Map<String, dynamic>.from(e)),
+          );
+          return list.map(Product.fromJson).toList();
+        }
+
+        // 5) { results: N, data: { data: [ ... ] } }
+        if (data is Map && data['data'] is List) {
+          final list = List<Map<String, dynamic>>.from(
+            (data['data'] as List).map((e) => Map<String, dynamic>.from(e)),
+          );
+          return list.map(Product.fromJson).toList();
+        }
+
+        // 6) { items: [ ... ] }
+        if (body['items'] is List) {
+          final list = List<Map<String, dynamic>>.from(
+            (body['items'] as List).map((e) => Map<String, dynamic>.from(e)),
+          );
+          return list.map(Product.fromJson).toList();
+        }
+      }
+
+      throw Exception('Unexpected products response shape');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data ?? e.message);
+    }
+  }
+
+  Future<Product> getProduct(String id) async {
+    try {
+      final res = await _dio.get('/products/$id');
+
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        throw Exception('Unauthorized: invalid/expired token.');
+      }
+      if (res.statusCode != 200) {
+        throw Exception('HTTP ${res.statusCode}: ${_preview(res.data)}');
+      }
+
+      if (res.data is Map<String, dynamic>) {
+        final body = res.data as Map<String, dynamic>;
+        final map =
+            (body['data'] is Map<String, dynamic>)
+                ? Map<String, dynamic>.from(body['data'])
+                : Map<String, dynamic>.from(body);
+        return Product.fromJson(map);
+      }
+
+      throw Exception('Unexpected product response shape');
     } on DioException catch (e) {
       throw Exception(e.response?.data ?? e.message);
     }
