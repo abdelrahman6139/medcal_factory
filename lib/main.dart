@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // 👈 مهم
 import 'package:pharma_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:pharma_app/features/auth/presentation/screens/onboarding_screen.dart';
+import 'package:pharma_app/features/auth/presentation/screens/splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'base_shell.dart';
 
@@ -48,7 +49,7 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
 
           debugShowCheckedModeBanner: false,
-          home: onboardingDone ? const LoginScreen() : const OnboardingScreen(),
+          home:  SplashScreen(),
           routes: {
             '/login': (c) => const LoginScreen(),
             '/app': (c) => const BaseShell(),

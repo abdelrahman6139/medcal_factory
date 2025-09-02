@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pharma_app/features/cart/screens/cart_screen.dart';
+import 'package:pharma_app/features/cart/views/cart_screen.dart';
 import 'features/product/screens/shop_screen.dart';
 import 'features/home/screens/home_page.dart';
 import 'widgets/base_layout.dart';

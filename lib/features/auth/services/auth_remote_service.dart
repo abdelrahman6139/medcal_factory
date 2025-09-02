@@ -11,23 +11,25 @@ class AuthRemoteService {
     ),
   );
 
-  // Signup
+  // --- 🔹 SIGNUP ---
   Future<Map<String, dynamic>> signup({
     required String name,
     required String email,
     required String password,
     required String confirmPassword,
   }) async {
+    const endpoint = '/signup';
+    final body = {
+      "name": name,
+      "email": email,
+      "password": password,
+      "passwordConfirm": confirmPassword,
+    };
+
     try {
-      final response = await _dio.post(
-        '/signup',
-        data: {
-          "name": name,
-          "email": email,
-          "password": password,
-          "passwordConfirm": confirmPassword, // ✅ Added
-        },
-      );
+      _logRequest('POST', endpoint, body);
+      final response = await _dio.post(endpoint, data: body);
+      _logResponse(endpoint, response.data);
 
       final data = response.data;
       final user = User.fromJson(data['data']);
@@ -38,24 +40,26 @@ class AuthRemoteService {
         "token": token,
       };
     } on DioException catch (e) {
+      _logError(endpoint, e);
       throw Exception(e.response?.data ?? e.message);
     }
   }
 
-
-  // Login
+  // --- 🔹 LOGIN ---
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
+    const endpoint = '/login';
+    final body = {
+      "email": email,
+      "password": password,
+    };
+
     try {
-      final response = await _dio.post(
-        '/login',
-        data: {
-          "email": email,
-          "password": password,
-        },
-      );
+      _logRequest('POST', endpoint, body);
+      final response = await _dio.post(endpoint, data: body);
+      _logResponse(endpoint, response.data);
 
       final data = response.data;
       final user = User.fromJson(data['data']);
@@ -66,50 +70,85 @@ class AuthRemoteService {
         "token": token,
       };
     } on DioException catch (e) {
+      _logError(endpoint, e);
       throw Exception(e.response?.data ?? e.message);
     }
   }
 
-  // Forgot Password
+  // --- 🔹 FORGOT PASSWORD ---
   Future<void> forgotPassword(String email) async {
+    const endpoint = '/forgotPassword';
+    final body = {"email": email};
+
     try {
-      await _dio.post(
-        '/forgotPassword',
-        data: {"email": email},
-      );
+      _logRequest('POST', endpoint, body);
+      final response = await _dio.post(endpoint, data: body);
+      _logResponse(endpoint, response.data);
     } on DioException catch (e) {
+      _logError(endpoint, e);
       throw Exception(e.response?.data ?? e.message);
     }
   }
 
-  // Verify Reset Code
+  // --- 🔹 VERIFY RESET CODE ---
   Future<void> verifyResetCode(String resetCode) async {
+    const endpoint = '/verifyResetCode';
+    final body = {"resetCode": resetCode};
+
     try {
-      await _dio.post(
-        '/verifyResetCode',
-        data: {"resetCode": resetCode},
-      );
+      _logRequest('POST', endpoint, body);
+      final response = await _dio.post(endpoint, data: body);
+      _logResponse(endpoint, response.data);
     } on DioException catch (e) {
+      _logError(endpoint, e);
       throw Exception(e.response?.data ?? e.message);
     }
   }
 
-  // Reset Password
+  // --- 🔹 RESET PASSWORD ---
   Future<String> resetPassword({
     required String email,
     required String newPassword,
   }) async {
+    const endpoint = '/resetPassword';
+    final body = {
+      "email": email,
+      "newPassword": newPassword,
+    };
+
     try {
-      final response = await _dio.post(
-        '/resetPassword',
-        data: {
-          "email": email,
-          "newPassword": newPassword,
-        },
-      );
+      _logRequest('POST', endpoint, body);
+      final response = await _dio.post(endpoint, data: body);
+      _logResponse(endpoint, response.data);
+
       return response.data['token'];
     } on DioException catch (e) {
+      _logError(endpoint, e);
       throw Exception(e.response?.data ?? e.message);
+    }
+  }
+
+  // --- 🔹 Logging Helpers ---
+  void _logRequest(String method, String endpoint, dynamic data) {
+    print('🔹 [REQUEST]');
+    print('  Method: $method');
+    print('  URL: ${_dio.options.baseUrl}$endpoint');
+    print('  Data Sent: ${data ?? "No body"}');
+  }
+
+  void _logResponse(String endpoint, dynamic data) {
+    print('✅ [RESPONSE]');
+    print('  URL: ${_dio.options.baseUrl}$endpoint');
+    print('  Data Received: $data');
+  }
+
+  void _logError(String endpoint, DioException e) {
+    print('❌ [ERROR]');
+    print('  URL: ${_dio.options.baseUrl}$endpoint');
+    print('  Message: ${e.message}');
+    if (e.response != null) {
+      print('  Status Code: ${e.response?.statusCode}');
+      print('  Error Data: ${e.response?.data}');
     }
   }
 }

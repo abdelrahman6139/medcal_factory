@@ -4,7 +4,7 @@ import '../../auth/models/user.dart';
 
 class Order {
   final String id;
-  final User user;
+  final String userId; // <-- store only ID
   final List<CartItem> cartItems;
   final double taxPrice;
   final double shippingPrice;
@@ -17,7 +17,7 @@ class Order {
 
   Order({
     required this.id,
-    required this.user,
+    required this.userId,
     required this.cartItems,
     required this.taxPrice,
     required this.shippingPrice,
@@ -32,7 +32,7 @@ class Order {
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
       id: json['_id'],
-      user: User.fromJson(json['user']),
+      userId: json['user'], // <-- assign directly
       cartItems: (json['cartItems'] as List)
           .map((item) => CartItem.fromJson(item))
           .toList(),
