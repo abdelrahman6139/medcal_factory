@@ -1,84 +1,287 @@
+// lib/features/home/pages/home_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../constants/colors.dart';
 import '../../product/models/product.dart';
 import '../../product/widgets/product_card.dart';
-import '../../../constants/colors.dart';
+import '../../product/services/product_service.dart';
+import '../../auth/services/auth_cache.dart';
+import '../../../core/debug/logger.dart';
 
-class HomePage extends StatefulWidget {
+// ✅ Provider بتاع الكميات (لو مسارك مختلف: غيّر السطر ده)
+import '../../product/presentation/state/quantity_notifier.dart';
+
+// ✅ Provider بتاع الكارت (persisted في SharedPreferences)
+import '../../cart/providers/cart_provider.dart';
+
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  List<int> quantities = List.filled(10, 0);
+class _HomePageState extends ConsumerState<HomePage> {
+  static const String _baseUrl = 'http://10.0.2.2:5000'; // Emulator
+  final List<Product> _all = [];
+  bool _loading = true;
+  String? _error;
 
-  List<Product> products = [
+  @override
+  void initState() {
+    super.initState();
+    L.d('HOME', 'init');
+    _load();
+  }
 
-  ];
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
-  // ⬅️ هيلبر للتنقل على Shop بتاب معيّن
-  void _goToShopTab(int tabIndex) {
-    Navigator.pushReplacementNamed(
-      context,
-      '/app',
-      arguments: {
-        'index': 2, // تبويب Shop في الـ BottomNav
-        'shopTab': tabIndex, // 0=All, 2=On Sale, 4=Popular
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final auth = AuthCache(prefs);
+      final token = await auth.getAccessToken();
+
+      if (token == null || token.isEmpty) {
+        throw Exception('No access token found. Please login first.');
+      }
+
+      final service = ProductService(baseUrl: _baseUrl, token: token);
+
+      L.d(
+        'HTTP →',
+        'GET /products',
+        data: {
+          'baseUrl': _baseUrl,
+          'headers': {'Authorization': 'Bearer ${token.substring(0, 8)}...'},
+          'query': {'limit': 20},
+        },
+      );
+
+      final products = await service.getProducts(limit: 20);
+
+      L.d('HTTP ←', 'loaded products', data: {'count': products.length});
+
+      _all
+        ..clear()
+        ..addAll(products);
+
+      if (!mounted) return;
+      setState(() => _loading = false);
+    } catch (e, st) {
+      L.e('HOME', 'error', error: e, st: st, data: {'msg': e.toString()});
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  // بديل واضح لـ withOpacity (deprec.):
+  Color _withAlpha(Color c, double alpha) =>
+      c.withValues(alpha: alpha.clamp(0.0, 1.0));
+
+  Future<void> _debugSnapshot() async {
+    // كميات + كارت + مفاتيح SharedPreferences
+    final qtyMap = ref.read(productQuantityProvider);
+    final cartState = ref.read(cartProvider);
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().toList()..sort();
+
+    L.d(
+      'DBG',
+      'home snapshot',
+      data: {
+        'productsCount': _all.length,
+        'qtyMapSize': qtyMap.length,
+        'cart': {
+          'items': cartState.items.length,
+          'totalQty': cartState.totalQty,
+          'totalPrice': cartState.totalPrice,
+        },
+        'prefsKeys': keys,
       },
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Home snapshot printed to console')),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          buildSearchBar(),
-          const SizedBox(height: 20),
-
-          // SHOP NOW #1 -> Shop/All
-          buildBanner(
-            'assets/images/pills.png',
-            AppColors.text.withOpacity(0.4),
-            'ORDER MEDICINE ONLINE',
-            'Fast delivery. Trusted products. Affordable prices.',
-            () => _goToShopTab(0), // 👈 All
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('حصل خطأ:\n$_error', textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton(onPressed: _load, child: const Text('Retry')),
+            ],
           ),
+        ),
+      );
+    }
 
-          const SizedBox(height: 16),
+    // ✅ Riverpod quantities
+    final qtyMap = ref.watch(productQuantityProvider);
+    final qtyCtl = ref.read(productQuantityProvider.notifier);
 
-          // SHOP NOW #2 -> Shop/On Sale
-          buildBanner(
-            'assets/images/doctor.jpg',
-            AppColors.text.withOpacity(0.3),
-            'Up to 80% Off On Health Products',
-            'Homeopathy, Ayurvedic,\nPersonal Care & More',
-            () => _goToShopTab(2), // 👈 On Sale
-          ),
+    // ✅ Cart notifier (هيعمل persist تلقائيًا)
+    final cart = ref.read(cartProvider.notifier);
 
-          const SizedBox(height: 24),
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: _debugSnapshot,
+        child: const Icon(Icons.bug_report),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSearchBar(),
+            const SizedBox(height: 20),
 
-          // See all -> Shop/Popular
-          sectionTitle('Popular Product', goToShopTab: 4),
-          buildHorizontalProductList(0, 5),
+            // Banners
+            _buildBanner(
+              'assets/images/pills.png',
+              _withAlpha(AppColors.text, 0.40),
+              'ORDER MEDICINE ONLINE',
+              'Fast delivery. Trusted products. Affordable prices.',
+              () {
+                // TODO: اربطها بالـ Shop لو عايز
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildBanner(
+              'assets/images/doctor.jpg',
+              _withAlpha(AppColors.text, 0.30),
+              'Up to 80% Off On Health Products',
+              'Homeopathy, Ayurvedic,\nPersonal Care & More',
+              () {},
+            ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+            _sectionTitle('All Products'),
+            const SizedBox(height: 8),
 
-          // See all -> Shop/On Sale
-          sectionTitle('Product on Sale', goToShopTab: 2),
-          buildHorizontalProductList(5, 10),
+            // قائمة أفقية بالمنتجات
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.38,
+              child:
+                  _all.isEmpty
+                      ? const Center(child: Text('مفيش منتجات حالياً'))
+                      : ListView.separated(
+                        padding: const EdgeInsets.only(right: 4),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _all.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, i) {
+                          final p = _all[i];
+                          final fixed = _withResolvedImageUrl(p);
+                          final q = qtyMap[p.id] ?? 0;
 
-          const SizedBox(height: 40),
-        ],
+                          return ProductCard(
+                            product: fixed,
+                            quantity: q,
+                            onAdd: () {
+                              L.d(
+                                'QTY',
+                                'home +',
+                                data: {
+                                  'id': p.id,
+                                  'from': q,
+                                  'max': p.quantity,
+                                },
+                              );
+                              qtyCtl.increment(p.id, maxQty: p.quantity);
+                            },
+                            onRemove: () {
+                              L.d(
+                                'QTY',
+                                'home -',
+                                data: {'id': p.id, 'from': q},
+                              );
+                              qtyCtl.decrement(p.id);
+                            },
+                            onAddToCart: () async {
+                              final picked = qtyMap[p.id] ?? 0;
+                              if (picked <= 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('اختار كمية الأول'),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              try {
+                                // 🧺 حفظ للكارت + persist في SharedPreferences (داخل cartProvider)
+                                await cart.addProduct(fixed, picked);
+
+                                // Debug + feedback
+                                L.d(
+                                  'CART',
+                                  'home add-to-cart',
+                                  data: {
+                                    'id': p.id,
+                                    'title': p.title,
+                                    'qty': picked,
+                                  },
+                                );
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Added ${p.title} x$picked'),
+                                  ),
+                                );
+
+                                // صفّر الكمية بعد الإضافة
+                                qtyCtl.reset(p.id);
+                              } catch (e, st) {
+                                L.e(
+                                  'CART',
+                                  'add-to-cart error',
+                                  error: e,
+                                  st: st,
+                                );
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Failed to add to cart'),
+                                  ),
+                                );
+                              }
+                            },
+                          );
+                        },
+                      ),
+            ),
+
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }
 
-  Widget buildSearchBar() {
+  // ==== Widgets ==== //
+  Widget _buildSearchBar() {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
@@ -89,12 +292,13 @@ class _HomePageState extends State<HomePage> {
           prefixIcon: Icon(Icons.search),
           hintText: 'Search for medicine...',
           border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         ),
       ),
     );
   }
 
-  Widget buildBanner(
+  Widget _buildBanner(
     String imagePath,
     Color overlayColor,
     String title,
@@ -121,6 +325,8 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -130,6 +336,8 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 8),
                   Text(
                     subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.white,
@@ -146,6 +354,10 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 3,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
               ),
               onPressed: onTap,
               child: const Text('SHOP NOW'),
@@ -156,8 +368,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ⬅️ تعدلناها عشان تستقبل تبويب وتروح له
-  Widget sectionTitle(String title, {int? goToShopTab}) {
+  Widget _sectionTitle(String title) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -165,34 +376,34 @@ class _HomePageState extends State<HomePage> {
           title,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        InkWell(
-          onTap: () => _goToShopTab(goToShopTab ?? 0),
-          child: const Text(
-            'See all',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-        ),
+        const SizedBox(),
       ],
     );
   }
 
-  Widget buildHorizontalProductList(int start, int end) {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.38,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: end - start,
-        itemBuilder: (context, index) {
-          final productIndex = start + index;
-          return ProductCard(
-            product: products[0], quantity: 0, onAdd: () {  }, onRemove: () {  },
-             );
-        },
-      ),
+  /// بعض الـ backends بترجع `imageCover` كإسم ملف مش URL كامل.
+  /// لو مش URL، بنبني رابط `uploads/products/<file>`.
+  Product _withResolvedImageUrl(Product p) {
+    bool looksLikeUrl(String s) =>
+        s.startsWith('http://') || s.startsWith('https://');
+
+    final cover = p.imageCover;
+    if (cover.isEmpty || looksLikeUrl(cover)) return p;
+
+    final full = '$_baseUrl/uploads/products/$cover';
+    return Product(
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      description: p.description,
+      quantity: p.quantity,
+      sold: p.sold,
+      price: p.price,
+      priceAfterDiscount: p.priceAfterDiscount,
+      colors: p.colors,
+      imageCover: full,
+      images: p.images,
+      category: p.category,
     );
   }
 }

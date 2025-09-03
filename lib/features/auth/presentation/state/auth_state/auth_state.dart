@@ -1,6 +1,5 @@
 import 'package:pharma_app/features/auth/models/user.dart';
 
-
 /// Authentication State (using sealed classes)
 sealed class AuthState {
   const AuthState();
@@ -17,7 +16,8 @@ class AuthLoading extends AuthState {
 
 class AuthAuthenticated extends AuthState {
   final User user;
-  const AuthAuthenticated(this.user);
+  final String accessToken;
+  const AuthAuthenticated(this.user, this.accessToken);
 }
 
 class AuthUnauthenticated extends AuthState {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../../../constants/colors.dart';
 import '../../../widgets/quantity_control.dart';
+import '../../../core/utils/image_url.dart'; // 👈
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -9,6 +10,9 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onRemove;
   final VoidCallback? onAddToCart;
+
+  // لو حابب تدي baseUrl من برا، خليه ثابت هنا (emulator)
+  static const String _baseUrl = 'http://10.0.2.2:5000';
 
   const ProductCard({
     Key? key,
@@ -21,6 +25,39 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final coverUrl = buildProductImageUrl(product.imageCover, _baseUrl);
+
+    Widget imageWidget;
+    if (coverUrl == null) {
+      // Placeholder لو مفيش لينك صالح
+      imageWidget = Container(
+        height: 70,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFFEFEFEF),
+        ),
+        child: const Center(child: Icon(Icons.image_not_supported, size: 28)),
+      );
+    } else {
+      imageWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          coverUrl,
+          height: 70,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          // لو السيرفر راجع 400 أو الصورة وقعت → مايبقاش فيه Exception
+          errorBuilder:
+              (_, __, ___) => Container(
+                height: 70,
+                color: const Color(0xFFEFEFEF),
+                child: const Center(child: Icon(Icons.broken_image, size: 28)),
+              ),
+        ),
+      );
+    }
+
     return Container(
       width: 160,
       margin: const EdgeInsets.only(right: 12),
@@ -38,22 +75,15 @@ class ProductCard extends StatelessWidget {
           // Image + quantity badge
           Stack(
             children: [
-              Container(
-                height: 70,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  image: DecorationImage(
-                    image: NetworkImage(product.imageCover),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
+              imageWidget, // 👈 بدل NetworkImage القديم
               Positioned(
                 top: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: const BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.only(

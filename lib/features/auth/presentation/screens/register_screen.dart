@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_app/constants/colors.dart';
 import 'package:pharma_app/base_shell.dart';
-import 'package:pharma_app/features/auth/presentation/state/auth_state/AuthNotifier.dart';
-import 'package:pharma_app/features/auth/presentation/state/auth_state/AuthState.dart';
+import 'package:pharma_app/features/auth/presentation/state/auth_state/auth_notifier.dart';
+import 'package:pharma_app/features/auth/presentation/state/auth_state/auth_state.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -38,7 +38,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (next is AuthAuthenticated) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const BaseShell()),
-              (_) => false,
+          (_) => false,
         );
       } else if (next is AuthError) {
         // 👇 Just print errors to console
@@ -148,30 +148,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    onPressed: authState is AuthLoading
-                        ? null
-                        : () {
-                      FocusScope.of(context).unfocus();
+                    onPressed:
+                        authState is AuthLoading
+                            ? null
+                            : () {
+                              FocusScope.of(context).unfocus();
 
-                      if (_passwordController.text !=
-                          _confirmController.text) {
-                        print("AUTH ERROR: Passwords do not match"); // 👈 console only
-                        return;
-                      }
+                              if (_passwordController.text !=
+                                  _confirmController.text) {
+                                print(
+                                  "AUTH ERROR: Passwords do not match",
+                                ); // 👈 console only
+                                return;
+                              }
 
-                      ref.read(authNotifierProvider.notifier).register(
-                        _nameController.text.trim(),
-                        _emailController.text.trim(),
-                        _passwordController.text.trim(),
-                        _confirmController.text.trim(), // 👈 send confirm too
-                      );
-                    },
-                    child: authState is AuthLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                      'Sign up',
-                      style: TextStyle(color: AppColors.white),
-                    ),
+                              ref
+                                  .read(authNotifierProvider.notifier)
+                                  .register(
+                                    _nameController.text.trim(),
+                                    _emailController.text.trim(),
+                                    _passwordController.text.trim(),
+                                    _confirmController.text
+                                        .trim(), // 👈 send confirm too
+                                  );
+                            },
+                    child:
+                        authState is AuthLoading
+                            ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                            : const Text(
+                              'Sign up',
+                              style: TextStyle(color: AppColors.white),
+                            ),
                   ),
                 ),
 

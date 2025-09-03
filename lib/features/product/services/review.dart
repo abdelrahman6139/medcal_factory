@@ -18,9 +18,10 @@ class ReviewService {
   Future<List<Review>> getReviews({String? productId}) async {
     final url = productId != null ? "/products/$productId/reviews" : "/reviews";
     final response = await _dio.get(url);
-    final reviews = (response.data['data'] as List)
-        .map((item) => Review.fromJson(item))
-        .toList();
+    final reviews =
+        (response.data['data'] as List)
+            .map((item) => Review.fromJson(item))
+            .toList();
     return reviews;
   }
 
@@ -38,11 +39,7 @@ class ReviewService {
   }) async {
     final response = await _dio.post(
       "/reviews",
-      data: {
-        "product": productId,
-        "ratings": ratings,
-        "title": title,
-      },
+      data: {"product": productId, "ratings": ratings, "title": title},
     );
     return Review.fromJson(response.data['data']);
   }

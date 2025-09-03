@@ -1,31 +1,38 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:pharma_app/features/auth/models/user.dart';
-import 'package:pharma_app/features/auth/presentation/state/auth_state/AuthState.dart';
-import 'package:pharma_app/features/auth/services/auth_remote_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:pharma_app/features/auth/models/user.dart';
+import 'package:pharma_app/features/auth/presentation/state/auth_state/auth_state.dart';
+import 'package:pharma_app/features/auth/services/auth_remote_service.dart';
 
+// ⬇️ import للـ tokenProvider بتاع المنتجات
+import 'package:pharma_app/features/product/providers/core_providers.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
+  final Ref ref; // ✅ علشان نحدّث tokenProvider
   final AuthRemoteService _authService;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  AuthNotifier(this._authService) : super(const AuthInitial()) {
-    _checkAuthStatus();
+  AuthNotifier(this.ref, this._authService) : super(const AuthInitial()) {
+    _bootstrap();
   }
 
-  /// 🔍 Check if user is already logged in
-  Future<void> _checkAuthStatus() async {
+  /// 🔍 Check if user already logged in
+  Future<void> _bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString('user');
     final token = await _secureStorage.read(key: 'accessToken');
 
-    if (userJson != null && token != null) {
+    if (userJson != null && token != null && token.isNotEmpty) {
       final user = User.fromJson(jsonDecode(userJson));
-      state = AuthAuthenticated(user);
+      // ✅ فعّل التوكن على مستوى التطبيق
+      ref.read(tokenProvider.notifier).state = token;
+      state = AuthAuthenticated(user, token);
     } else {
+      // امسح أي توكن قديم
+      ref.read(tokenProvider.notifier).state = '';
       state = const AuthUnauthenticated();
     }
   }
@@ -36,19 +43,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final result = await _authService.login(email: email, password: password);
       final user = result['user'] as User;
-      final token = result['token'] as String?;
-      print("token$token}");
+      final token = result['token'] as String? ?? '';
 
-      // ✅ Save user + token in cache
+      // ✅ Save user + token
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user', jsonEncode(user.toJson()));
-      if (token != null) {
-        await _secureStorage.write(key: 'accessToken', value: token);
-        final check = await _secureStorage.read(key: 'accessToken');
-        print("🔑 Saved token in secure storage: $check");
-      }
+      await _secureStorage.write(key: 'accessToken', value: token);
 
-      state = AuthAuthenticated(user);
+      // ✅ فعّل التوكن للريبو/السيرفس
+      ref.read(tokenProvider.notifier).state = token;
+
+      state = AuthAuthenticated(user, token);
     } catch (e) {
       state = AuthError(e.toString());
     }
@@ -56,36 +61,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// 📝 Signup
   Future<void> register(
-      String name,
-      String email,
-      String password,
-      String confirmPassword,
-      ) async {
+    String name,
+    String email,
+    String password,
+    String confirmPassword,
+  ) async {
     state = const AuthLoading();
     try {
       final result = await _authService.signup(
         name: name,
         email: email,
         password: password,
-        confirmPassword: confirmPassword, // ✅ Pass confirm password
+        confirmPassword: confirmPassword,
       );
 
       final user = result['user'] as User;
-      final token = result['token'] as String?;
+      final token = result['token'] as String? ?? '';
 
-      // ✅ Save user + token in cache
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user', jsonEncode(user.toJson()));
-      if (token != null) {
-        await _secureStorage.write(key: 'accessToken', value: token);
-      }
+      await _secureStorage.write(key: 'accessToken', value: token);
 
-      state = AuthAuthenticated(user);
+      ref.read(tokenProvider.notifier).state = token;
+
+      state = AuthAuthenticated(user, token);
     } catch (e) {
       state = AuthError(e.toString());
     }
   }
-
 
   /// 🔒 Forgot Password
   Future<void> forgotPassword(String email) async {
@@ -113,11 +116,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> resetPassword(String email, String newPassword) async {
     state = const AuthLoading();
     try {
-      final token =
-      await _authService.resetPassword(email: email, newPassword: newPassword);
-      // Usually fetch user again after reset
-      if (token != null) {
+      final token = await _authService.resetPassword(
+        email: email,
+        newPassword: newPassword,
+      );
+      if (token != null && token.isNotEmpty) {
         await _secureStorage.write(key: 'accessToken', value: token);
+        ref.read(tokenProvider.notifier).state = token; // ✅
       }
       state = const AuthResetPasswordSuccess();
     } catch (e) {
@@ -130,17 +135,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user');
     await _secureStorage.delete(key: 'accessToken');
-    state = const AuthUnauthenticated();
-  }
 
-  void setAuthenticated(Map<String, dynamic> userJson, String token) {
-    final user = User.fromJson(userJson);
-    state = AuthAuthenticated(user);
+    // ✅ امسح التوكن من الـ provider كمان
+    ref.read(tokenProvider.notifier).state = '';
+
+    state = const AuthUnauthenticated();
   }
 }
 
 /// Riverpod provider (inject service into notifier)
-final authNotifierProvider =
-StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(AuthRemoteService());
+final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((
+  ref,
+) {
+  return AuthNotifier(ref, AuthRemoteService());
 });
