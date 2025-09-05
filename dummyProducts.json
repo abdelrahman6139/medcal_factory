@@ -1,0 +1,53 @@
+[
+  {
+    "title": "Wireless Bluetooth Headphones",
+    "slug": "wireless-bluetooth-headphones",
+    "description": "High quality wireless Bluetooth headphones with noise cancellation, 20 hours battery life, and comfortable ear cups for daily use.",
+    "quantity": 50,
+    "sold": 10,
+    "price": 120,
+    "priceAfterDiscount": 99,
+    "colors": ["Black", "White", "Blue"],
+    "imageCover": "headphones-cover.jpg",
+    "images": ["headphones-1.jpg", "headphones-2.jpg", "headphones-3.jpg"],
+    "category": "64f10eec9a0f9c0b4e2f1a11",
+    "subcategories": ["64f10f4c9a0f9c0b4e2f1a22"],
+    "brand": "64f10f9c9a0f9c0b4e2f1a33",
+    "ratingsAverage": 4.5,
+    "ratingsQuantity": 120
+  },
+  {
+    "title": "Men's Running Shoes",
+    "slug": "mens-running-shoes",
+    "description": "Lightweight and breathable men's running shoes with soft cushioning and durable sole, perfect for running and everyday wear.",
+    "quantity": 100,
+    "sold": 25,
+    "price": 80,
+    "priceAfterDiscount": 65,
+    "colors": ["Black", "Gray", "Red"],
+    "imageCover": "shoes-cover.jpg",
+    "images": ["shoes-1.jpg", "shoes-2.jpg"],
+    "category": "64f10eec9a0f9c0b4e2f1a12",
+    "subcategories": ["64f10f4c9a0f9c0b4e2f1a23"],
+    "brand": "64f10f9c9a0f9c0b4e2f1a44",
+    "ratingsAverage": 4.2,
+    "ratingsQuantity": 95
+  },
+  {
+    "title": "Smartphone 128GB",
+    "slug": "smartphone-128gb",
+    "description": "Latest smartphone with 128GB storage, 6.5-inch display, dual cameras, and long-lasting 5000mAh battery.",
+    "quantity": 70,
+    "sold": 40,
+    "price": 499,
+    "priceAfterDiscount": 450,
+    "colors": ["Black", "Silver", "Gold"],
+    "imageCover": "phone-cover.jpg",
+    "images": ["phone-1.jpg", "phone-2.jpg"],
+    "category": "64f10eec9a0f9c0b4e2f1a13",
+    "subcategories": ["64f10f4c9a0f9c0b4e2f1a24"],
+    "brand": "64f10f9c9a0f9c0b4e2f1a55",
+    "ratingsAverage": 4.7,
+    "ratingsQuantity": 300
+  }
+]
