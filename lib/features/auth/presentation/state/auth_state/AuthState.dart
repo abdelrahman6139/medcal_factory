@@ -1,5 +1,5 @@
+// lib/features/auth/presentation/state/auth_state/AuthState.dart
 import 'package:pharma_app/features/auth/models/user.dart';
-
 
 /// Authentication State (using sealed classes)
 sealed class AuthState {

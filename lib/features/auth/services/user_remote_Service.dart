@@ -1,81 +1,63 @@
-// lib/services/user_service.dart
+// lib/features/auth/services/user_remote_Service.dart
+// Keep filename casing to match your imports.
 import 'dart:io';
 import 'package:dio/dio.dart';
-import '../models/user.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
-class UserService {
-  late Dio _dio;
-
-  UserService(String token) {
+class UserRemoteService {
+  late final Dio _dio;
+  UserRemoteService({required String token}) {
+    final base = _resolveBase();
     _dio = Dio(
       BaseOptions(
-        baseUrl: "http://10.0.2.2:5000/api/v1", // change if needed
-        connectTimeout: Duration(seconds: 5),
-        receiveTimeout: Duration(seconds: 3),
+        baseUrl: '$base/api/v1',
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 10),
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
         },
       ),
     );
   }
 
-  // GET all users
-  Future<List<User>> getUsers() async {
-    try {
-      final response = await _dio.get("/users");
-      final List<dynamic> data = response.data['data'];
-      return data.map((json) => User.fromJson(json)).toList();
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
+  String _resolveBase() {
+    if (kIsWeb) return 'http://localhost:5000';
+    if (Platform.isAndroid) return 'http://10.0.2.2:5000';
+    return 'http://localhost:5000';
   }
 
-  // GET a single user
-  Future<User> getUser(String id) async {
-    try {
-      final response = await _dio.get("/users/$id");
-      return User.fromJson(response.data['data']);
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
+  T _ok<T>(Response res) {
+    if ((res.statusCode ?? 500) >= 200 && (res.statusCode ?? 500) < 300) {
+      return res.data as T;
     }
+    throw DioException(
+      requestOptions: res.requestOptions,
+      response: res,
+      error: 'HTTP ${res.statusCode}: ${res.data}',
+      type: DioExceptionType.badResponse,
+    );
   }
 
-  // UPDATE a user
-  Future<User> updateUser(String id, Map<String, dynamic> updates) async {
-    try {
-      final response = await _dio.put("/users/$id", data: updates);
-      return User.fromJson(response.data['data']);
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
+  Future<Map<String, dynamic>> getProfile() async {
+    final res = await _dio.get('/users/me');
+    return _ok<Map<String, dynamic>>(res);
   }
 
-  // DELETE a user
-  Future<void> deleteUser(String id) async {
-    try {
-      await _dio.delete("/users/$id");
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> payload) async {
+    final res = await _dio.patch('/users/updateMe', data: payload);
+    return _ok<Map<String, dynamic>>(res);
   }
 
-  // UPLOAD profile image
-  Future<User> uploadProfileImage(String id, File imageFile) async {
-    try {
-      String fileName = imageFile.path.split('/').last;
-
-      FormData formData = FormData.fromMap({
-        "profileImg": await MultipartFile.fromFile(
-          imageFile.path,
-          filename: fileName,
-        ),
-      });
-
-      final response = await _dio.put("/users/$id", data: formData);
-      return User.fromJson(response.data['data']);
-    } on DioException catch (e) {
-      throw Exception(e.response?.data ?? e.message);
-    }
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final res = await _dio.patch('/users/changeMyPassword', data: {
+      'currentPassword': currentPassword,
+      'password': newPassword,
+      'passwordConfirm': newPassword,
+    });
+    return _ok<Map<String, dynamic>>(res);
   }
 }

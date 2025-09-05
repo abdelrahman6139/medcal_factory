@@ -1,38 +1,58 @@
+// lib/features/auth/services/AuthCache.dart
 import 'dart:convert';
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:pharma_app/features/auth/models/user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pharma_app/features/auth/models/user.dart';
 
 class AuthCache {
-  final FlutterSecureStorage _secure = const FlutterSecureStorage();
+  final FlutterSecureStorage _secure;
   final SharedPreferences _prefs;
+  const AuthCache._(this._secure, this._prefs);
 
-  AuthCache(this._prefs);
-
-  // Save tokens
-  Future<void> saveTokens(String access, String refresh) async {
-    await _secure.write(key: 'accessToken', value: access);
-    await _secure.write(key: 'refreshToken', value: refresh);
+  static Future<AuthCache> create() async {
+    final prefs = await SharedPreferences.getInstance();
+    return AuthCache._(const FlutterSecureStorage(), prefs);
   }
 
-  // Load tokens
+  // Tokens
+  Future<void> saveTokens(String access, [String? refresh]) async {
+    await _secure.write(key: 'accessToken', value: access);
+    if (refresh != null) {
+      await _secure.write(key: 'refreshToken', value: refresh);
+    }
+  }
+
   Future<String?> getAccessToken() => _secure.read(key: 'accessToken');
   Future<String?> getRefreshToken() => _secure.read(key: 'refreshToken');
 
-  // Save user data
+  Future<void> clearTokens() async {
+    await _secure.delete(key: 'accessToken');
+    await _secure.delete(key: 'refreshToken');
+  }
+
+  // User
   Future<void> saveUser(User user) async {
-    _prefs.setString('user', jsonEncode(user.toJson()));
+    await _prefs.setString('user', jsonEncode(user.toJson()));
   }
 
   User? getUser() {
-    final json = _prefs.getString('user');
-    return json != null ? User.fromJson(jsonDecode(json)) : null;
+    final raw = _prefs.getString('user');
+    if (raw == null) return null;
+    return User.fromJson(jsonDecode(raw) as Map<String, dynamic>);
   }
 
-  // Clear all
-  Future<void> clear() async {
+  Future<void> clearUser() async {
+    await _prefs.remove('user');
+  }
+
+  // All
+  Future<void> clearAll() async {
     await _secure.deleteAll();
     await _prefs.clear();
+  }
+
+  Future<bool> hasSession() async {
+    final t = await getAccessToken();
+    return t != null && t.isNotEmpty && getUser() != null;
   }
 }

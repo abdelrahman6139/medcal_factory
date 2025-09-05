@@ -182,7 +182,7 @@ class _CartScreenState extends State<CartScreen> {
                       IconButton(
                         onPressed: () => _remove(i),
                         icon: const Icon(Icons.delete_outline),
-                        color: AppColors.danger,
+                        color: AppColors.darkGray,
                         tooltip: 'Remove',
                       ),
                     ],

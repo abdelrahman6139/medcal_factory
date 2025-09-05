@@ -1,11 +1,19 @@
+// lib/features/auth/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pharma_app/base_shell.dart';
+import 'package:pharma_app/constants/colors.dart';
+import 'package:pharma_app/features/auth/services/auth_remote_service.dart';
+import 'package:pharma_app/features/auth/services/AuthCache.dart';
+import 'package:pharma_app/features/auth/models/user.dart';
 import 'package:pharma_app/features/auth/presentation/state/auth_state/AuthNotifier.dart';
 import 'package:pharma_app/features/auth/presentation/state/auth_state/AuthState.dart';
 import 'register_screen.dart';
 import 'forget_password_screen.dart';
-import 'package:pharma_app/constants/colors.dart';
+
+// Put your Web client ID (same one your backend verifies)
+const String kGoogleWebClientId = '276810087339-0nnqjp1833s4andi8qtmqeefs1j65mh1.apps.googleusercontent.com';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -15,8 +23,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscure = true;
+  bool _isGoogleBusy = false;
 
   @override
   void dispose() {
@@ -25,21 +36,75 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _handleEmailPasswordLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+    final email = _emailController.text.trim();
+    final pass = _passwordController.text;
+
+    final notifier = ref.read(authNotifierProvider.notifier);
+    await notifier.login(email: email, password: pass);
+  }
+
+  Future<void> _handleGoogleLogin() async {
+    if (_isGoogleBusy) return;
+    setState(() => _isGoogleBusy = true);
+    try {
+      final google = GoogleSignIn(
+        scopes: ['email', 'profile'],
+        serverClientId: kGoogleWebClientId,
+      );
+      final acc = await google.signIn();
+      if (acc == null) return;
+      final auth = await acc.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No ID token returned from Google.')),
+          );
+        }
+        return;
+      }
+
+      // Exchange with backend
+      final api = AuthRemoteService();
+      final res = await api.googleLogin(idToken: idToken);
+      final User user = res['user'] as User;
+      final String token = res['token'] as String? ?? '';
+
+      final cache = await AuthCache.create();
+      await cache.saveUser(user);
+      if (token.isNotEmpty) await cache.saveTokens(token);
+
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const BaseShell()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google login failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
 
-    // 🔔 Listen for state changes
-    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
-      // 📌 Debug log for every state change
-      debugPrint("AuthState changed: $next");
-
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) async {
       if (next is AuthAuthenticated) {
+        if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const BaseShell()),
-              (_) => false,
+          (route) => false,
         );
       } else if (next is AuthError) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(next.message)),
         );
@@ -48,184 +113,84 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: SingleChildScrollView(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 32),
-                const Text(
-                  'Login here',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  ),
-                ),
+                const SizedBox(height: 16),
+                Text('Welcome Back', style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: AppColors.text, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                const Text(
-                  'Welcome back you’ve been missed!',
-                  style: TextStyle(fontSize: 16, color: AppColors.textGray),
-                ),
-                const SizedBox(height: 32),
-
-                // Email Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black12, blurRadius: 6),
-                    ],
+                const Text('Sign in to continue', style: TextStyle(color: AppColors.subtitle)),
+                const SizedBox(height: 24),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    border: OutlineInputBorder(),
                   ),
-                  child: TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      labelStyle: TextStyle(color: AppColors.textGray),
-                      border: InputBorder.none,
-                      contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Email is required';
+                    if (!v.contains('@')) return 'Enter a valid email';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
-
-                // Password Field
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black12, blurRadius: 6),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: TextStyle(color: AppColors.textGray),
-                      border: InputBorder.none,
-                      contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscure,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => _obscure = !_obscure),
+                      icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                     ),
                   ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Password is required';
+                    if (v.length < 6) return 'Minimum 6 characters';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 8),
-
-                // Forgot Password
                 Align(
                   alignment: Alignment.centerRight,
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ForgetPasswordScreen(),
-                        ),
-                      );
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ForgetPasswordScreen()));
                     },
-                    child: const Text(
-                      'Forgot your password?',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    child: const Text('Forgot password?'),
                   ),
                 ),
-                const SizedBox(height: 24),
-
-                // Sign In Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: authState is AuthLoading
-                        ? null
-                        : () {
-                      FocusScope.of(context).unfocus();
-                      ref
-                          .read(authNotifierProvider.notifier)
-                          .login(_emailController.text.trim(),
-                          _passwordController.text.trim());
-                    },
-                    child: authState is AuthLoading
-                        ? const CircularProgressIndicator(
-                      color: Colors.white,
-                    )
-                        : const Text(
-                      'Sign in',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: authState is AuthLoading ? null : _handleEmailPasswordLogin,
+                  child: authState is AuthLoading
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Sign In'),
                 ),
-                const SizedBox(height: 16),
-
-                // Create Account
-                Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RegisterScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      "Create new account",
-                      style: TextStyle(color: AppColors.textGray),
-                    ),
-                  ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _isGoogleBusy ? null : _handleGoogleLogin,
+                  icon: const Icon(Icons.g_mobiledata),
+                  label: Text(_isGoogleBusy ? 'Connecting…' : 'Continue with Google'),
                 ),
-                const SizedBox(height: 32),
-
-                const Center(
-                  child: Text(
-                    "Or continue with",
-                    style: TextStyle(color: AppColors.textGray),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Social Media Buttons
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    CircleAvatar(
-                      backgroundColor: AppColors.lightGray,
-                      radius: 22,
-                      child: Icon(Icons.g_mobiledata,
-                          size: 28, color: Colors.black),
-                    ),
-                    SizedBox(width: 24),
-                    CircleAvatar(
-                      backgroundColor: AppColors.lightGray,
-                      radius: 22,
-                      child:
-                      Icon(Icons.facebook, size: 24, color: Colors.black),
-                    ),
-                    SizedBox(width: 24),
-                    CircleAvatar(
-                      backgroundColor: AppColors.lightGray,
-                      radius: 22,
-                      child: Icon(Icons.apple, size: 24, color: Colors.black),
-                    ),
+                  children: [
+                    const Text("Don't have an account?"),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RegisterScreen()));
+                      },
+                      child: const Text('Create account'),
+                    )
                   ],
                 ),
               ],

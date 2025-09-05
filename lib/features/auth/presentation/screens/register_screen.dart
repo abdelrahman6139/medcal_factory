@@ -1,3 +1,4 @@
+// lib/features/auth/screens/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pharma_app/constants/colors.dart';
@@ -13,10 +14,14 @@ class RegisterScreen extends ConsumerStatefulWidget {
 }
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+
+  bool _hidePass = true;
+  bool _hideConfirm = true;
 
   @override
   void dispose() {
@@ -27,22 +32,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.dispose();
   }
 
+ Future<void> _doRegister() async {
+  if (!_formKey.currentState!.validate()) return;
+
+  await ref.read(authNotifierProvider.notifier).register(
+    name: _nameController.text.trim(),
+    email: _emailController.text.trim(),
+    password: _passwordController.text,
+    confirmPassword: _confirmController.text,
+  );
+}
+
+
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
 
-    // 🔔 Listen for auth changes
-    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
-      print("STATE CHANGED: $next");
-
+    // Listen for state changes
+    ref.listen<AuthState>(authNotifierProvider, (prev, next) {
       if (next is AuthAuthenticated) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const BaseShell()),
-              (_) => false,
+          (_) => false,
         );
       } else if (next is AuthError) {
-        // 👇 Just print errors to console
-        print("AUTH ERROR: ${next.message}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.message)),
+        );
       }
     });
 
@@ -52,166 +69,149 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 32),
-                const Text(
-                  'Create Account',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.text,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Create an account so you can explore all the existing jobs',
-                  style: TextStyle(fontSize: 16, color: AppColors.subtitle),
-                ),
-                const SizedBox(height: 32),
-
-                // 👇 Name
-                TextField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Name',
-                    labelStyle: const TextStyle(color: AppColors.textGray),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.border),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Create Account',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.text,
                     ),
-                    filled: true,
-                    fillColor: AppColors.white,
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Email
-                TextField(
-                  controller: _emailController,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    labelStyle: const TextStyle(color: AppColors.textGray),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    filled: true,
-                    fillColor: AppColors.white,
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Create an account to continue',
+                    style: TextStyle(fontSize: 16, color: AppColors.subtitle),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 32),
 
-                // Password
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    labelStyle: const TextStyle(color: AppColors.textGray),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    filled: true,
-                    fillColor: AppColors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Confirm Password
-                TextField(
-                  controller: _confirmController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm Password',
-                    labelStyle: const TextStyle(color: AppColors.textGray),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.border),
-                    ),
-                    filled: true,
-                    fillColor: AppColors.white,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Sign Up Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
+                  // Full name
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Full Name',
+                      border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.white,
+                    ),
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Name is required' : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Email
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.white,
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Email is required';
+                      }
+                      if (!v.contains('@')) return 'Enter a valid email';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Password
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _hidePass,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.white,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _hidePass ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setState(() => _hidePass = !_hidePass),
                       ),
                     ),
-                    onPressed: authState is AuthLoading
-                        ? null
-                        : () {
-                      FocusScope.of(context).unfocus();
+                    validator: (v) =>
+                        (v == null || v.length < 6) ? 'Minimum 6 characters' : null,
+                  ),
+                  const SizedBox(height: 16),
 
-                      if (_passwordController.text !=
-                          _confirmController.text) {
-                        print("AUTH ERROR: Passwords do not match"); // 👈 console only
-                        return;
-                      }
+                  // Confirm Password
+                  TextFormField(
+                    controller: _confirmController,
+                    obscureText: _hideConfirm,
+                    decoration: InputDecoration(
+                      labelText: 'Confirm Password',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.border),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.white,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _hideConfirm ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setState(() => _hideConfirm = !_hideConfirm),
+                      ),
+                    ),
+                    validator: (v) =>
+                        v != _passwordController.text ? 'Passwords do not match' : null,
+                  ),
+                  const SizedBox(height: 24),
 
-                      ref.read(authNotifierProvider.notifier).register(
-                        _nameController.text.trim(),
-                        _emailController.text.trim(),
-                        _passwordController.text.trim(),
-                        _confirmController.text.trim(), // 👈 send confirm too
-                      );
-                    },
-                    child: authState is AuthLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                      'Sign up',
-                      style: TextStyle(color: AppColors.white),
+                  // Sign Up button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: authState is AuthLoading ? null : _doRegister,
+                      child: authState is AuthLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Sign Up',
+                              style: TextStyle(color: Colors.white)),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
 
-                const SizedBox(height: 16),
-
-                // Already have account
-                Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text(
-                      "Already have an account",
-                      style: TextStyle(color: AppColors.subtitle),
+                  // Already have account
+                  Center(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Text(
+                        "Already have an account?",
+                        style: TextStyle(color: AppColors.subtitle),
+                      ),
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 32),
-
-                const Center(
-                  child: Text(
-                    "Or continue with",
-                    style: TextStyle(color: AppColors.subtitle),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Social Media Icons (placeholders)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.g_mobiledata, size: 32, color: AppColors.text),
-                    SizedBox(width: 24),
-                    Icon(Icons.facebook, size: 28, color: AppColors.text),
-                    SizedBox(width: 24),
-                    Icon(Icons.apple, size: 28, color: AppColors.text),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
