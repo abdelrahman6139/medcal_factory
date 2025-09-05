@@ -3,6 +3,7 @@ import '../models/product.dart';
 import '../../../constants/colors.dart';
 import '../../../widgets/quantity_control.dart';
 import '../../../core/utils/image_url.dart'; // 👈
+import '../../../core/utils/base_url.dart'; // 👈';
 
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -10,9 +11,6 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onAdd;
   final VoidCallback onRemove;
   final VoidCallback? onAddToCart;
-
-  // لو حابب تدي baseUrl من برا، خليه ثابت هنا (emulator)
-  static const String _baseUrl = 'http://10.0.2.2:5000';
 
   const ProductCard({
     Key? key,
@@ -25,7 +23,9 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coverUrl = buildProductImageUrl(product.imageCover, _baseUrl);
+    // لو حابب تدي baseUrl من برا، خليه ثابت هنا (emulator)
+    final String baseUrl = getBaseUrl();
+    final coverUrl = buildProductImageUrl(product.imageCover, baseUrl);
 
     Widget imageWidget;
     if (coverUrl == null) {

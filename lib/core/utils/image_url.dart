@@ -1,16 +1,15 @@
 String? buildProductImageUrl(String? imageCover, String baseUrl) {
   if (imageCover == null || imageCover.isEmpty) return null;
 
-  // كامل؟
+  // لو الرابط جاهز وكامل
   if (imageCover.startsWith('http://') || imageCover.startsWith('https://')) {
-    return imageCover;
+    // استبدل localhost بـ 10.0.2.2 عشان emulator
+    return imageCover.replaceFirst('localhost', '10.0.2.2');
   }
 
-  // قيم بايظة جايه من السيرفر
+  // قيم بايظة
   if (imageCover.startsWith('undefined')) return null;
 
-  // نسبي: "headphones-cover.jpg" أو "products/file.jpg"
   final clean = imageCover.replaceFirst(RegExp(r'^/*'), '');
-  // السيرفر عندك بيخدّم من /uploads
   return '$baseUrl/uploads/products/$clean';
 }
