@@ -12,6 +12,7 @@ import 'package:pharma_app/features/product/providers/index.dart';
 import '../state/quantity_notifier.dart';
 import '../../../cart/providers/cart_provider.dart';
 import '../../../../core/debug/logger.dart';
+import 'package:pharma_app/features/product/presentation/screens/product_details_screen.dart';
 
 const baseUrl = 'http://10.0.2.2:5000';
 
@@ -213,6 +214,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
               error: (err, _) => Center(child: Text('Error: $err')),
               data: (products) {
                 final filtered = _filter(products);
+
                 return RefreshIndicator(
                   onRefresh: _onRefresh,
                   child:
@@ -262,6 +264,22 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                                       content: Text(
                                         'Added ${p.title} × $picked',
                                       ),
+                                    ),
+                                  );
+                                },
+
+                                // ✅ جديد: اختبار الضغط
+                                onTap: () {
+                                  final heroTag = 'product-${p.id}-cover';
+
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => ProductDetailsScreen(
+                                            product: p,
+                                            heroTag: 'product-${p.id}-cover',
+                                          ),
                                     ),
                                   );
                                 },
